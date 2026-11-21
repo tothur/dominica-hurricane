@@ -88,10 +88,10 @@ vec4 sampleHurricaneField(
   // Combined massive horizontal cloud cover (virtually 100% solid across inner 130+ km diameter!)
   float horiz = clamp(max(max(cdo * 1.25, lowerBlanket * (0.72 + 0.45 * spiralRidges)), outerSpiral * 1.12), 0.0, 1.0);
 
-  // 3. Scattered peripheral tropical cumulus way out along the outer ocean edges
-  float tradeEnv = smoothstep(7.5, 11.0, rEff) * smoothstep(18.5, 12.5, rEff);
-  float tradeDens = tradeEnv * smoothstep(0.45, 0.74, m2 * 0.55 + m3 * 0.45)
-    * smoothstep(0.01, 0.08, h) * smoothstep(0.26, 0.08, h) * 0.62;
+  // 3. Soft low-altitude tropical trade-wind cumulus over the outer ocean (thick enough to never alias/speckle)
+  float tradeEnv = smoothstep(7.5, 10.5, rEff) * smoothstep(18.0, 12.2, rEff);
+  float tradeDens = tradeEnv * smoothstep(0.46, 0.78, m2 * 0.65 + m3 * 0.35)
+    * smoothstep(0.01, 0.10, h) * smoothstep(0.36, 0.12, h) * 0.52;
 
   // 4. Radiating high-altitude silky cirrus outflow canopy fanning across the entire CDO & outer shield
   float outPhase = ang + 0.55 * logR - spinOuter * 0.30;
@@ -310,14 +310,14 @@ void main() {
     if (tMax <= tMin) discard;
   }
 
-  // Finer march span when viewing from ground/island level so cloud base & stadium wall stay silky-smooth!
-  float maxSpan = uTerrainClip > 0.5 ? 42000.0 : 96000.0;
+  // Keep step size tight on VR tabletop & ground views so thin low-altitude clouds never alias into dark specks!
+  float maxSpan = uTerrainClip > 0.5 ? 42000.0 : ${tabletop ? '58000.0' : '96000.0'};
   float marchSpan = min(tMax - tMin, maxSpan);
   float dt = marchSpan / float(${steps});
 
-  // Interleaved gradient noise jitter completely removes raymarch banding!
+  // Gentle interleaved gradient noise jitter removes banding without causing salt-and-pepper noise
   float ign = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
-  float t = tMin + dt * ign;
+  float t = tMin + dt * (0.20 + 0.60 * ign);
 
   // Henyey-Greenstein forward scattering phase for bright silver linings
   float cosTheta = dot(rd, uSunDir);
@@ -337,10 +337,10 @@ void main() {
     vec4 fld = sampleHurricaneField(p, uEyePos, uEyeR, uStormInt, uTime, tNoise);
     float dens = fld.x;
 
-    // Smooth edge fade near Quest 3 tabletop plinth border
+    // Smooth generous edge fade near Quest 3 tabletop plinth border
     if (uClipHalf < 500000.0 && dens > 0.005) {
       float edge = max(abs(p.x), abs(p.z));
-      dens *= smoothstep(uClipHalf, uClipHalf - 4800.0, edge);
+      dens *= smoothstep(uClipHalf, uClipHalf - 14000.0, edge);
     }
 
     if (dens > 0.008) {
@@ -363,10 +363,10 @@ void main() {
       float eyeSpill = eyewall * (0.20 + 0.35 * h);
       float underSculpt = mix(1.0, 0.38 + 1.05 * texture2D(tNoise, (p.xz - uEyePos) / 14000.0 + vec2(h * 0.4, -h * 0.3)).r, lookUpBoost * (1.0 - heightAO * 0.6));
 
-      vec3 cloudAlbedo = mix(vec3(0.30, 0.37, 0.48), vec3(0.95, 0.965, 0.99), smoothstep(0.06, 0.78, h));
+      vec3 cloudAlbedo = mix(vec3(0.46, 0.53, 0.64), vec3(0.95, 0.965, 0.99), smoothstep(0.06, 0.74, h));
       cloudAlbedo = mix(cloudAlbedo, vec3(0.98, 0.99, 1.0), cirrus * 0.75);
 
-      vec3 ambLight = uSky * mix((0.40 + 0.32 * lookUpBoost) * underSculpt, 1.10, heightAO) + uBounce * (1.0 - heightAO) * 0.60;
+      vec3 ambLight = uSky * mix((0.58 + 0.28 * lookUpBoost) * underSculpt, 1.15, heightAO) + uBounce * (1.0 - heightAO) * 0.55;
       vec3 sunLight = uSunCol * 0.80 * max(sunTrans, eyeSpill * 0.22) * phase * powder * mix(0.24 + 0.22 * eyeSpill, 1.08, heightAO);
       vec3 lit = cloudAlbedo * (ambLight + sunLight);
 

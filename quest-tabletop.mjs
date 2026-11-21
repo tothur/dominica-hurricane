@@ -920,11 +920,12 @@ export function createTabletop({
         .replace('#include <color_fragment>', /* glsl */`
           #include <color_fragment>
           vec4 baked = texture2D(tBakedAlbedo, vUvT);
-          float micro = texture2D(tNoise, vW.xz / 24.0).r;
-          float mx = texture2D(tNoise, (vW.xz + vec2(5.0, 0.0)) / 24.0).r - micro;
-          float mz = texture2D(tNoise, (vW.xz + vec2(0.0, 5.0)) / 24.0).r - micro;
-          diffuseColor.rgb = baked.rgb * baked.rgb * 2.0 * (0.91 + 0.18 * micro);
-          gNW = normalize(vNW + vec3(-mx, 0.0, -mz) * 0.42 * uExag);
+          float landM = smoothstep(1.0, 14.0, vW.y);
+          float micro = texture2D(tNoise, vW.xz / 180.0).r;
+          float mx = texture2D(tNoise, (vW.xz + vec2(32.0, 0.0)) / 180.0).r - micro;
+          float mz = texture2D(tNoise, (vW.xz + vec2(0.0, 32.0)) / 180.0).r - micro;
+          diffuseColor.rgb = baked.rgb * baked.rgb * 2.0 * mix(1.0, 0.92 + 0.16 * micro, landM);
+          gNW = normalize(vNW + vec3(-mx, 0.0, -mz) * 0.38 * uExag * landM);
         `)
         .replace('#include <emissivemap_fragment>', /* glsl */`
           #include <emissivemap_fragment>
@@ -938,7 +939,7 @@ export function createTabletop({
           normal = normalize((viewMatrix * vec4(normalize(uTabletopNMat * gNW), 0.0)).xyz);
         `);
     };
-    terrainMat.customProgramCacheKey = () => 'tabletop-fast-terrain-hurricane-v1';
+    terrainMat.customProgramCacheKey = () => 'tabletop-fast-terrain-hurricane-v2';
 
     const terrain = new THREE.Mesh(terrainGeom, terrainMat);
     terrain.frustumCulled = false;
@@ -1268,7 +1269,7 @@ export function createTabletop({
     tabletopClouds = createHurricaneCloudMesh({
       tNoise: uniforms.tNoise.value,
       tabletop: true,
-      steps: 24,
+      steps: 28,
       vertScale: 2.6,
       maxRadius: Math.min(118000, span * 0.49),
       clipHalf: span * 0.50,
