@@ -1,0 +1,139 @@
+{
+  "name": "Dominica \u2014 Category 5 Hurricane",
+  "size": 84000.0,
+  "center": [
+    0.0,
+    0.0
+  ],
+  "latc": 15.42,
+  "lonc": -61.35,
+  "q": {
+    "scale": 32.0,
+    "offset": -20.0
+  },
+  "auxRanges": [
+    [
+      0.0,
+      1.0
+    ],
+    [
+      0.0,
+      1.0
+    ],
+    [
+      0.0,
+      1.0
+    ],
+    [
+      0.0,
+      1.0
+    ]
+  ],
+  "island": {
+    "peak": [
+      -5191.0,
+      -9335.6
+    ],
+    "peakHeight": 1428.1,
+    "landfall": [
+      11053.2,
+      9792.5
+    ],
+    "eyeCenter": [
+      -536.6,
+      1659.8
+    ]
+  },
+  "landmarks": [
+    {
+      "name": "Morne Diablotins (1,447 m)",
+      "major": true,
+      "pos": [
+        -5097.4,
+        -9161.8
+      ],
+      "h": 1380.8,
+      "lift": 240
+    },
+    {
+      "name": "Morne Trois Pitons (1,387 m)",
+      "major": true,
+      "pos": [
+        2232.1,
+        5410.8
+      ],
+      "h": 1351.3,
+      "lift": 200
+    },
+    {
+      "name": "Roseau (Capital)",
+      "major": true,
+      "pos": [
+        -4088.6,
+        13089.9
+      ],
+      "h": 7.1,
+      "lift": 160
+    },
+    {
+      "name": "Portsmouth",
+      "major": false,
+      "pos": [
+        -11804.4,
+        -18069.1
+      ],
+      "h": 20.4,
+      "lift": 140
+    },
+    {
+      "name": "Marigot",
+      "major": false,
+      "pos": [
+        7157.8,
+        -12536.6
+      ],
+      "h": 145.0,
+      "lift": 140
+    },
+    {
+      "name": "La Plaine (Landfall)",
+      "major": false,
+      "pos": [
+        11053.2,
+        9792.5
+      ],
+      "h": 76.0,
+      "lift": 150
+    },
+    {
+      "name": "Soufri\u00e8re Bay",
+      "major": false,
+      "pos": [
+        -1073.1,
+        20691.5
+      ],
+      "h": 18.6,
+      "lift": 140
+    },
+    {
+      "name": "Caribbean Sea",
+      "major": false,
+      "pos": [
+        -28974.4,
+        0.0
+      ],
+      "h": 0.0,
+      "lift": 180
+    },
+    {
+      "name": "Atlantic Ocean",
+      "major": false,
+      "pos": [
+        19500.0,
+        21500.0
+      ],
+      "h": 0.0,
+      "lift": 180
+    }
+  ]
+}
