@@ -748,7 +748,7 @@ export function createTabletop({
   let bakeTerrain = null;
 
   if (hasGPUShaders) {
-    const BAKE_N = 512;
+    const BAKE_N = 1024;
     const BAKE_STEP = span / BAKE_N;
     const canFloatRT = renderer.capabilities?.isWebGL2 &&
       (renderer.extensions?.has('EXT_color_buffer_float') || renderer.extensions?.has('EXT_color_buffer_half_float'));
@@ -1262,14 +1262,15 @@ export function createTabletop({
     reliefLblTex.needsUpdate = true;
   }
 
-  // True 3D Volumetric Raymarched Hurricane (128-tri proxy, 18 steps, 1 draw call, auto hand occlusion!)
+  // True 3D Volumetric Raymarched Hurricane (128-tri proxy, 20 steps, 1 draw call, auto hand occlusion!)
+  // Fits the full ~160 km Cat 5 CDO + sweeping outer spiral rainbands cleanly on the 240 km VR tabletop!
   let tabletopClouds = null;
   if (uniforms?.tNoise?.value) {
     tabletopClouds = createHurricaneCloudMesh({
       tNoise: uniforms.tNoise.value,
       tabletop: true,
-      steps: 18,
-      maxRadius: 56000,
+      steps: 20,
+      maxRadius: Math.min(118000, span * 0.49),
       clipHalf: span * 0.50,
     });
     model.add(tabletopClouds.mesh);
