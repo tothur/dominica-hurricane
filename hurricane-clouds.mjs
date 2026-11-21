@@ -100,20 +100,20 @@ vec4 sampleHurricaneField(
   float cirrusDens = cirrusVert * smoothstep(13.5, 2.5, rEff) * eyeMask
     * smoothstep(0.22, 0.78, (cdo * 0.78 + spiralRidges * 0.65) * (0.48 + 0.65 * cirrusBand) * (0.55 + 0.55 * m2)) * 0.46;
 
-  // Rich sculpted satellite cloud-top topography (this is what makes a dense white overcast look 3D!):
-  // - Boiling eyewall overshooting turrets (~12.4 km)
-  // - Broad undulating CDO dome (~9.5-11.5 km) carved with spiral ridges & cumulus cauliflower
-  // - Lower overcast cloud floor inside spiral creases (~4.2-6.0 km) so creases show deep shadows, not bare sea!
-  float ridgeRelief = (spiralRidges * 0.28 + fineRidges * 0.10) * smoothstep(1.2, 3.2, rEff);
-  float turretRelief = (cauli - 0.46) * (0.24 + 0.14 * cdo);
-  float outerSlope = mix(0.32, 0.82, smoothstep(15.5, 3.0, rEff));
+  // Rich sculpted 3D cloud-top topography with deep spiral canyons & towering eyewall turrets:
+  float ridgeRelief = (spiralRidges * 0.34 + fineRidges * 0.14) * smoothstep(1.1, 3.0, rEff);
+  float turretRelief = (cauli - 0.44) * (0.30 + 0.16 * cdo);
+  float outerSlope = mix(0.28, 0.78, smoothstep(15.5, 3.0, rEff));
+  // Carve genuine 3D valleys between spiral bands so stereo VR sees dramatic multi-level cloud cliffs
+  float canyonDip = (1.0 - spiralRidges) * smoothstep(1.6, 3.4, rEff) * 0.28;
 
   float topH = clamp(
-    cdo * (0.72 + 0.16 * coreFbm)
-    + eyewallRing * (0.20 + 0.12 * cauli)
-    + (1.0 - cdo * 0.65) * (lowerBlanket * 0.42 + outerSpiral * outerSlope * 0.52)
+    cdo * (0.68 + 0.18 * coreFbm)
+    + eyewallRing * (0.24 + 0.14 * cauli)
+    + (1.0 - cdo * 0.60) * (lowerBlanket * 0.34 + outerSpiral * outerSlope * 0.54)
     + ridgeRelief * smoothstep(16.0, 4.0, rEff)
-    + turretRelief * horiz,
+    + turretRelief * horiz
+    - canyonDip,
     0.0,
     1.0
   ) * clamp(0.78 + 0.22 * stormInt, 0.0, 1.0);
@@ -182,25 +182,30 @@ export function buildHurricaneShellGeometry({
 
 const HURRICANE_VOL_VS = /* glsl */`
 uniform vec2 uEyePos;
-uniform float uExag;
+uniform float uExag, uVertScale;
+uniform mat4 uInvModel;
 varying vec3 vLocalPos;
+varying vec3 vCamLocal;
 void main() {
-  float cloudExag = mix(1.0, uExag, 0.22);
+  float cloudExag = uVertScale * mix(1.0, uExag, 0.35);
   vec3 wp = vec3(position.x + uEyePos.x, position.y * cloudExag, position.z + uEyePos.y);
   vLocalPos = wp;
+  // Per-eye exact local camera position! Gives true Left/Right stereo 3D parallax in Quest 3 VR.
+  vCamLocal = (uInvModel * vec4(cameraPosition, 1.0)).xyz;
   gl_Position = projectionMatrix * modelViewMatrix * vec4(wp, 1.0);
 }
 `;
 
-export function buildHurricaneFS({ tabletop = false, steps = tabletop ? 18 : 38 } = {}) {
+export function buildHurricaneFS({ tabletop = false, steps = tabletop ? 24 : 38 } = {}) {
   const shadowTaps = tabletop ? 2 : 3;
   return /* glsl */`
 uniform sampler2D tNoise, tD;
 uniform vec2 uEyePos;
-uniform vec3 uCamPosLocal, uSunDir, uSunCol, uSky, uBounce, uFogCol;
-uniform float uEyeR, uStormInt, uTime, uExag, uMaxR, uClipHalf, uFogD, uSize, uND, uTerrainClip;
+uniform vec3 uSunDir, uSunCol, uSky, uBounce, uFogCol;
+uniform float uEyeR, uStormInt, uTime, uExag, uVertScale, uMaxR, uClipHalf, uFogD, uSize, uND, uTerrainClip;
 uniform vec4 uFlashes[6];
 varying vec3 vLocalPos;
+varying vec3 vCamLocal;
 
 ${HURRICANE_CLOUD_COMMON}
 
@@ -226,9 +231,9 @@ float evalDensityFast(vec3 p) {
 }
 
 void main() {
-  float cloudExag = mix(1.0, uExag, 0.22);
-  // Work in un-exaggerated physical meters so cloud shapes & Beer-Lambert optical depth stay accurate
-  vec3 ro = vec3(uCamPosLocal.x, uCamPosLocal.y / cloudExag, uCamPosLocal.z);
+  float cloudExag = uVertScale * mix(1.0, uExag, 0.35);
+  // Work in un-exaggerated physical meters using per-eye vCamLocal for true 3D stereo depth!
+  vec3 ro = vec3(vCamLocal.x, vCamLocal.y / cloudExag, vCamLocal.z);
   vec3 target = vec3(vLocalPos.x, vLocalPos.y / cloudExag, vLocalPos.z);
   vec3 rd = normalize(target - ro);
 
@@ -345,12 +350,12 @@ void main() {
       float eyewall = fld.z;
       float cirrus = fld.w;
 
-      // True 3D directional Beer-Lambert sun self-shadowing toward uSunDir!
+      // Deeper 3D Beer-Lambert directional sun self-shadowing for bold volumetric cliffs & troughs!
       float occ = 0.0;
-      occ += evalDensityFast(p + uSunDir * 1400.0) * 1.25;
-      occ += evalDensityFast(p + uSunDir * 3800.0) * 1.95;
-      ${shadowTaps > 2 ? 'occ += evalDensityFast(p + uSunDir * 7800.0) * 1.75;' : ''}
-      float sunTrans = exp(-occ * 1.45);
+      occ += evalDensityFast(p + uSunDir * 1400.0) * 1.35;
+      occ += evalDensityFast(p + uSunDir * 3800.0) * 2.15;
+      ${shadowTaps > 2 ? 'occ += evalDensityFast(p + uSunDir * 7800.0) * 1.85;' : ''}
+      float sunTrans = exp(-occ * 1.65);
       // Multiple-scattering powder effect keeps cloud tops sculptural without clipping to flat white
       float powder = 0.42 + 0.58 * (1.0 - exp(-dens * 3.4));
       float heightAO = smoothstep(0.0, 0.82, h / max(topH, 0.22));
@@ -408,9 +413,10 @@ export function createHurricaneCloudMesh({
   size = 84000,
   nd = 2048,
   tabletop = false,
-  steps = tabletop ? 18 : 38,
-  maxRadius = tabletop ? 56000 : 150000,
-  clipHalf = tabletop ? 42000 : 1e9,
+  steps = tabletop ? 24 : 38,
+  vertScale = tabletop ? 2.6 : 1.0,
+  maxRadius = tabletop ? 118000 : 150000,
+  clipHalf = tabletop ? 120000 : 1e9,
 } = {}) {
   const geom = buildHurricaneShellGeometry({ maxRadius, minHeight: -150, maxHeight: 13200 });
 
@@ -420,12 +426,13 @@ export function createHurricaneCloudMesh({
     uSize: { value: size },
     uND: { value: nd },
     uTerrainClip: { value: 0.0 },
+    uInvModel: { value: new THREE.Matrix4() },
     uEyePos: { value: new THREE.Vector2(0, 0) },
-    uCamPosLocal: { value: new THREE.Vector3(16000, 72000, 74000) },
     uEyeR: { value: 7800 },
     uStormInt: { value: 1.0 },
     uTime: { value: 0 },
     uExag: { value: 1.5 },
+    uVertScale: { value: vertScale },
     uMaxR: { value: maxRadius },
     uClipHalf: { value: clipHalf },
     uFogD: { value: 0.000009 },
@@ -458,11 +465,10 @@ export function createHurricaneCloudMesh({
 
   // Outside/above hurricane: FrontSide + depthTest=true (preserves Quest 3 bare-hand occlusion!).
   // Inside/below hurricane (standing on Dominica, Roseau, Morne Diablotins, flying through eye):
-  // BackSide + depthTest=false + exact GPU heightmap terrain/ocean ray clipping so mountains occlude
-  // clouds behind them while clouds in front & overhead render seamlessly in 360 degrees!
-  const updateCameraSide = (camLocal) => {
-    uniforms.uCamPosLocal.value.copy(camLocal);
-    const cloudExag = 1 + (uniforms.uExag.value - 1) * 0.22;
+  // BackSide + depthTest=false + exact GPU heightmap terrain/ocean ray clipping.
+  const updateCameraSide = (camLocal, invModelMat = null) => {
+    if (invModelMat) uniforms.uInvModel.value.copy(invModelMat);
+    const cloudExag = uniforms.uVertScale.value * (1 + (uniforms.uExag.value - 1) * 0.35);
     const cy = camLocal.y / cloudExag;
     const dx = camLocal.x - uniforms.uEyePos.value.x;
     const dz = camLocal.z - uniforms.uEyePos.value.y;

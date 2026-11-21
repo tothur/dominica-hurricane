@@ -1262,14 +1262,14 @@ export function createTabletop({
     reliefLblTex.needsUpdate = true;
   }
 
-  // True 3D Volumetric Raymarched Hurricane (128-tri proxy, 20 steps, 1 draw call, auto hand occlusion!)
-  // Fits the full ~160 km Cat 5 CDO + sweeping outer spiral rainbands cleanly on the 240 km VR tabletop!
+  // True 3D Volumetric Raymarched Hurricane (per-eye stereo parallax, 2.6x sculptural desk height, auto hand occlusion!)
   let tabletopClouds = null;
   if (uniforms?.tNoise?.value) {
     tabletopClouds = createHurricaneCloudMesh({
       tNoise: uniforms.tNoise.value,
       tabletop: true,
-      steps: 20,
+      steps: 24,
+      vertScale: 2.6,
       maxRadius: Math.min(118000, span * 0.49),
       clipHalf: span * 0.50,
     });
@@ -3179,7 +3179,7 @@ export function createTabletop({
         if (uniforms?.uFlashes?.value) {
           for (let k = 0; k < 6; k++) cu.uFlashes.value[k].copy(uniforms.uFlashes.value[k]);
         }
-        tabletopClouds.updateCameraSide(tabletopEU.uCamPosLocal.value);
+        tabletopClouds.updateCameraSide(tabletopEU.uCamPosLocal.value, _invModel);
       }
     }
 
