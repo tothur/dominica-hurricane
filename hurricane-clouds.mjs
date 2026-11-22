@@ -310,15 +310,12 @@ void main() {
     if (tMax <= tMin) discard;
   }
 
-  // Keep step size tight on VR tabletop & ground views.
-  // In Quest 3 VR (foveated rendering), skip per-pixel IGN dithering so zero static noise appears over the ocean!
+  // Keep step size tight on VR tabletop & ground views with smooth IGN start jitter
   float maxSpan = uTerrainClip > 0.5 ? 42000.0 : ${tabletop ? '56000.0' : '96000.0'};
   float marchSpan = min(tMax - tMin, maxSpan);
   float dt = marchSpan / float(${steps});
-  ${tabletop
-    ? 'float t = tMin + dt * 0.5;'
-    : 'float ign = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715)))); float t = tMin + dt * (0.20 + 0.60 * ign);'
-  }
+  float ign = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
+  float t = tMin + dt * (0.25 + 0.50 * ign);
 
   // Henyey-Greenstein forward scattering phase for bright silver linings
   float cosTheta = dot(rd, uSunDir);
@@ -421,8 +418,27 @@ export function createHurricaneCloudMesh({
 } = {}) {
   const geom = buildHurricaneShellGeometry({ maxRadius, minHeight: -150, maxHeight: 13200 });
 
+  // Use a dedicated mipmap-free LinearFilter copy of tNoise so raymarch texture fetches
+  // inside divergent loops/early breaks NEVER trigger undefined dFdx/dFdy mipmap garbage on Quest 3 Adreno GPUs!
+  let cloudNoise = tNoise;
+  if (tNoise?.image?.data && typeof THREE.DataTexture === 'function') {
+    cloudNoise = new THREE.DataTexture(
+      tNoise.image.data,
+      tNoise.image.width,
+      tNoise.image.height,
+      tNoise.format,
+      tNoise.type,
+    );
+    cloudNoise.wrapS = THREE.RepeatWrapping;
+    cloudNoise.wrapT = THREE.RepeatWrapping;
+    cloudNoise.magFilter = THREE.LinearFilter;
+    cloudNoise.minFilter = THREE.LinearFilter;
+    cloudNoise.generateMipmaps = false;
+    cloudNoise.needsUpdate = true;
+  }
+
   const uniforms = {
-    tNoise: { value: tNoise },
+    tNoise: { value: cloudNoise },
     tD: { value: tD || tNoise },
     uSize: { value: size },
     uND: { value: nd },

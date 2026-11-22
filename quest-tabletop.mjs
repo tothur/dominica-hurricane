@@ -959,12 +959,12 @@ export function createTabletop({
           vec2 wp = position.xz;
           vec2 uvT = clamp((wp - uTableCenter) / uTableSpan + 0.5, 0.0, 1.0);
           float hC = texture2D(tBakedHeight, uvT).r;
-          vW = vec3(wp.x, mix(0.0, hC, aTop), wp.y);
+          vW = vec3(wp.x, mix(-240.0, hC, aTop), wp.y);
           vec3 objectNormal = normal; vNW = normal;
         `
         : `
           vec2 wp = position.xz; vec4 aux; float hC = baseH(wp, aux);
-          vW = vec3(wp.x, mix(0.0, hC, aTop), wp.y);
+          vW = vec3(wp.x, mix(-240.0, hC, aTop), wp.y);
           vec3 objectNormal = normal; vNW = normal;
         `;
 
@@ -989,7 +989,7 @@ export function createTabletop({
           normal = normalize((viewMatrix * vec4(normalize(uTabletopNMat * normalize(vNW)), 0.0)).xyz);
         `);
     };
-    skirtMat.customProgramCacheKey = () => 'tabletop-fast-skirt-v2';
+    skirtMat.customProgramCacheKey = () => 'tabletop-fast-skirt-v3';
     const skirt = new THREE.Mesh(skirtGeom, skirtMat);
     skirt.frustumCulled = false;
     model.add(skirt);
@@ -1003,12 +1003,16 @@ export function createTabletop({
     model.add(terrain);
   }
 
-  // Dark basalt plinth + satin chamfer trim + fine specular base rim flush on y=0 in holder space
+  // Dark basalt plinth (top lid omitted & recessed strictly below y = 0 so it NEVER Z-fights with the ocean!)
+  const plinthSideMat = new THREE.MeshStandardMaterial({ color: 0x14171c, roughness: 0.88, metalness: 0.08, envMapIntensity: 0 });
+  const plinthTopHidden = new THREE.MeshBasicMaterial({ visible: false });
+  const plinthDrop = Math.max(120, Math.round(plinthDepth * 0.08));
+  const plinthH = Math.max(100, plinthDepth - plinthDrop);
   const plinth = new THREE.Mesh(
-    new THREE.BoxGeometry(span, plinthDepth, span),
-    new THREE.MeshStandardMaterial({ color: 0x14171c, roughness: 0.88, metalness: 0.08, envMapIntensity: 0 }),
+    new THREE.BoxGeometry(span, plinthH, span),
+    [plinthSideMat, plinthSideMat, plinthTopHidden, plinthSideMat, plinthSideMat, plinthSideMat],
   );
-  plinth.position.set(cx, -plinthDepth * 0.5, cz);
+  plinth.position.set(cx, -plinthDepth + plinthH * 0.5, cz);
   model.add(plinth);
 
   const trim = new THREE.Mesh(
@@ -1270,7 +1274,7 @@ export function createTabletop({
     tabletopClouds = createHurricaneCloudMesh({
       tNoise: uniforms.tNoise.value,
       tabletop: true,
-      steps: 32,
+      steps: 24,
       vertScale: 2.6,
       maxRadius: Math.min(118000, span * 0.49),
       clipHalf: span * 0.50,
