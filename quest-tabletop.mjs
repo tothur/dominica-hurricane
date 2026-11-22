@@ -756,8 +756,9 @@ export function createTabletop({
     const rtAlbedo = new THREE.WebGLRenderTarget(BAKE_N, BAKE_N, {
       type: THREE.UnsignedByteType,
       format: THREE.RGBAFormat,
-      minFilter: THREE.LinearFilter,
+      minFilter: THREE.LinearMipmapLinearFilter,
       magFilter: THREE.LinearFilter,
+      generateMipmaps: true,
       depthBuffer: false,
       stencilBuffer: false,
     });
@@ -1269,7 +1270,7 @@ export function createTabletop({
     tabletopClouds = createHurricaneCloudMesh({
       tNoise: uniforms.tNoise.value,
       tabletop: true,
-      steps: 28,
+      steps: 32,
       vertScale: 2.6,
       maxRadius: Math.min(118000, span * 0.49),
       clipHalf: span * 0.50,

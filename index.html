@@ -342,9 +342,9 @@ body:not(.show-labels) .label { display: none; }
 </script>
 <script type="module">
 import * as THREE from 'three';
-import { createTabletop } from './quest-tabletop.mjs?v=20261121h17';
-import { stormClock, stormEvolution, terrainHeight, HURRICANE_GLSL, createHurricane } from './hurricane-model.mjs?v=20261121h17';
-import { HURRICANE_CLOUD_COMMON, createHurricaneCloudMesh } from './hurricane-clouds.mjs?v=20261121h17';
+import { createTabletop } from './quest-tabletop.mjs?v=20261121h18';
+import { stormClock, stormEvolution, terrainHeight, HURRICANE_GLSL, createHurricane } from './hurricane-model.mjs?v=20261121h18';
+import { HURRICANE_CLOUD_COMMON, createHurricaneCloudMesh } from './hurricane-clouds.mjs?v=20261121h18';
 import { clipmapCenter } from './terrain-lod.mjs';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { Sky } from 'three/addons/objects/Sky.js';
@@ -692,27 +692,27 @@ const FRAG_COLOR = /* glsl */`
     float ang = atan(rel.y, rel.x);
     float wallBand = exp(-pow((rEye - uEyeR * 1.15) / (uEyeR * 0.65), 2.0)) * uStormInt;
     float inEye = smoothstep(uEyeR * 0.95, uEyeR * 0.55, rEye);
-    // Counter-clockwise Northern Hemisphere spiral wind-streak whitecaps around the eye
+    // Smooth macro-scale Northern Hemisphere spiral wind-streak whitecaps (zero sub-Nyquist aliasing!)
     float spiralCoord = ang - log(max(rEye, 600.0) / 1000.0) * 2.5 + uTime * 0.0024;
-    float streak1 = texture(tNoise, vec2(spiralCoord * 2.4, rEye / 4200.0)).r;
-    float streak2 = texture(tNoise, vW.xz / 420.0 + vec2(uTime * 0.002, -uTime * 0.002)).r;
-    float foam = smoothstep(0.42, 0.84, streak1 * 0.65 + streak2 * 0.35) * (0.18 + 0.82 * wallBand) * (1.0 - 0.85 * inEye);
-    vec3 deepSea = lin(vec3(0.025, 0.10, 0.21));
-    vec3 stormSea = lin(vec3(0.04, 0.14, 0.22));
-    vec3 eyeSea = lin(vec3(0.05, 0.28, 0.38));
+    float waveBand = 0.5 + 0.5 * sin(spiralCoord * 6.0);
+    float swell = texture(tNoise, vW.xz / 4200.0 + vec2(uTime * 0.0012, -uTime * 0.0012)).r;
+    float foam = smoothstep(0.48, 0.86, waveBand * 0.55 + swell * 0.45) * (0.10 + 0.78 * wallBand) * (1.0 - 0.88 * inEye);
+    vec3 deepSea = lin(vec3(0.045, 0.15, 0.29));
+    vec3 stormSea = lin(vec3(0.055, 0.18, 0.30));
+    vec3 eyeSea = lin(vec3(0.06, 0.32, 0.44));
     vec3 seaCol = mix(deepSea, stormSea, wallBand);
     seaCol = mix(seaCol, eyeSea, inEye * 0.72 + smoothstep(0.2, 2.0, h) * 0.45);
-    seaCol = mix(seaCol, lin(vec3(0.76, 0.86, 0.92)), foam * 0.72);
+    seaCol = mix(seaCol, lin(vec3(0.76, 0.86, 0.92)), foam * 0.65);
     // Coastal storm surge & breaking surf around Dominica's shoreline
-    float surf = smoothstep(0.2, 1.4, h) * smoothstep(2.4, 1.0, h) * (0.45 + 0.55 * n4) * (0.5 + 0.5 * uStormInt);
-    seaCol = mix(seaCol, lin(vec3(0.84, 0.92, 0.96)), surf * 0.75);
+    float surf = smoothstep(0.2, 1.4, h) * smoothstep(2.4, 1.0, h) * (0.55 + 0.45 * swell) * (0.5 + 0.5 * uStormInt);
+    seaCol = mix(seaCol, lin(vec3(0.84, 0.92, 0.96)), surf * 0.72);
     col = mix(col, seaCol, seaW);
     gNW = normalize(mix(gNW, vec3(0.0, 1.0, 0.0), seaW));
   }
 
   // Real-time sun-angled hurricane cloud shadow on Dominica & ocean (eye stays brilliantly sunlit!)
   float cShad = hurricaneCloudShadow(vW.xz, uEyePos, uEyeR, uStormInt, uTime, uSunDir, tNoise);
-  col *= mix(1.0, 0.28, cShad);
+  col *= mix(1.0, 0.42, cShad);
 #endif
   diffuseColor.rgb = col;
 `;

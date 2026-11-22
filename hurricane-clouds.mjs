@@ -310,14 +310,15 @@ void main() {
     if (tMax <= tMin) discard;
   }
 
-  // Keep step size tight on VR tabletop & ground views so thin low-altitude clouds never alias into dark specks!
-  float maxSpan = uTerrainClip > 0.5 ? 42000.0 : ${tabletop ? '58000.0' : '96000.0'};
+  // Keep step size tight on VR tabletop & ground views.
+  // In Quest 3 VR (foveated rendering), skip per-pixel IGN dithering so zero static noise appears over the ocean!
+  float maxSpan = uTerrainClip > 0.5 ? 42000.0 : ${tabletop ? '56000.0' : '96000.0'};
   float marchSpan = min(tMax - tMin, maxSpan);
   float dt = marchSpan / float(${steps});
-
-  // Gentle interleaved gradient noise jitter removes banding without causing salt-and-pepper noise
-  float ign = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
-  float t = tMin + dt * (0.20 + 0.60 * ign);
+  ${tabletop
+    ? 'float t = tMin + dt * 0.5;'
+    : 'float ign = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715)))); float t = tMin + dt * (0.20 + 0.60 * ign);'
+  }
 
   // Henyey-Greenstein forward scattering phase for bright silver linings
   float cosTheta = dot(rd, uSunDir);
@@ -350,12 +351,12 @@ void main() {
       float eyewall = fld.z;
       float cirrus = fld.w;
 
-      // Deeper 3D Beer-Lambert directional sun self-shadowing for bold volumetric cliffs & troughs!
+      // Deeper 3D Beer-Lambert directional sun self-shadowing (floored at 0.24 so cloud skirts never turn into dark noise!)
       float occ = 0.0;
       occ += evalDensityFast(p + uSunDir * 1400.0) * 1.35;
       occ += evalDensityFast(p + uSunDir * 3800.0) * 2.15;
       ${shadowTaps > 2 ? 'occ += evalDensityFast(p + uSunDir * 7800.0) * 1.85;' : ''}
-      float sunTrans = exp(-occ * 1.65);
+      float sunTrans = mix(0.24, 1.0, exp(-occ * 1.55));
       // Multiple-scattering powder effect keeps cloud tops sculptural without clipping to flat white
       float powder = 0.42 + 0.58 * (1.0 - exp(-dens * 3.4));
       float heightAO = smoothstep(0.0, 0.82, h / max(topH, 0.22));
